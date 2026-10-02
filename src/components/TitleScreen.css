@@ -1,0 +1,81 @@
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+*, *:before, *:after {
+  box-sizing: inherit;
+}
+
+.modern-title-screen {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  background: url('/images/modern-bg.jpg') no-repeat center center fixed;
+  background-size: cover;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  overflow: hidden;
+}
+
+.modern-content-wrapper {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  height: 90vh;
+  width: 100%;
+  max-width: 600px;
+  padding: 30px;
+  box-sizing: border-box;
+}
+
+/* Pushes the button area down away from the top title graphic */
+.spacer-top {
+  height: 75%; 
+}
+
+.button-area {
+  margin-bottom: auto;
+}
+
+.modern-start-btn {
+  background-color: #2563eb;
+  color: white;
+  font-size: 1.3rem;
+  font-weight: 600;
+  padding: 16px 50px;
+  border: none;
+  border-radius: 50px;
+  cursor: pointer;
+  box-shadow: 0 10px 25px -5px rgba(37, 99, 235, 0.4);
+  transition: all 0.2s ease;
+}
+
+.modern-start-btn:hover {
+  background-color: #1d4ed8;
+  transform: translateY(-2px);
+  box-shadow: 0 15px 30px -5px rgba(37, 99, 235, 0.5);
+}
+
+.modern-start-btn:active {
+  transform: translateY(0);
+}
+
+.modern-footer {
+  background: rgba(255, 255, 255, 0.8);
+  padding: 6px 18px;
+  border-radius: 20px;
+  color: #64748b;
+  font-size: 0.85rem;
+  font-weight: 500;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+}
