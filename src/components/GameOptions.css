@@ -1,213 +1,150 @@
-.modern-options-screen {
-  width: 100vw;
-  height: 100vh;
-  background: #f8fafc;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 20px;
-  box-sizing: border-box;
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  overflow-y: auto;
-}
-
-.modern-options-card {
-  background: #ffffff;
-  border-radius: 16px;
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.08);
+.options-wrap {
   width: 100%;
-  max-width: 600px;
-  max-height: 90vh;
-  overflow-y: auto;
-  padding: 30px;
-  box-sizing: border-box;
-  color: #1e293b;
+  max-width: 560px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 16px;
+  margin: auto 0;
 }
 
-.modern-options-card h2 {
-  text-align: center;
-  color: #0f172a;
-  margin: 0 0 5px 0;
-  font-size: 2rem;
-  font-weight: 700;
-}
-
-.modern-option-group {
+.options-header {
   display: flex;
-  flex-direction: column;
+  align-items: center;
   gap: 8px;
+  margin-left: -8px;
 }
 
-.modern-option-group label {
-  font-weight: 600;
-  font-size: 0.95rem;
-  color: #475569;
+.options-header h1 {
+  font-size: 1.6rem;
+  font-weight: 750;
+  letter-spacing: -0.02em;
 }
 
-.modern-label-row {
+.options-card {
+  padding: 8px 24px;
+}
+
+.option-section {
   display: flex;
-  justify-content: space-between;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px 0;
+}
+
+.option-section + .option-section {
+  border-top: 1px solid var(--border);
+}
+
+.option-label {
+  font-size: 0.8rem;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-2);
+}
+
+.option-label-row {
+  display: flex;
   align-items: center;
-  width: 100%;
+  justify-content: space-between;
 }
 
-.modern-option-group .modern-label-row .modern-btn-small {
-  width: auto;
-  flex: 0 0 auto;
-  padding: 6px 14px;
-  font-size: 0.85rem;
-}
-
-.modern-btn-small {
-  background-color: #e2e8f0;
-  color: #334155;
+.link-btn {
   border: none;
-  border-radius: 6px;
-  padding: 6px 12px;
-  font-size: 0.85rem;
+  background: none;
+  padding: 4px 2px;
+  color: var(--accent);
   font-weight: 600;
+  font-size: 0.85rem;
   cursor: pointer;
-  width: auto; /* Ensures it only takes up as much room as the text needs */
-  flex: unset; /* Prevents it from stretching in flex containers */
 }
 
-.modern-btn-small:hover {
-  background-color: #cbd5e1;
+.link-btn:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
-.modern-continents-grid {
+.option-hint {
+  font-size: 0.85rem;
+  color: var(--text-3);
+}
+
+.option-hint.warn {
+  color: var(--warning);
+}
+
+.name-fields {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
   gap: 10px;
 }
 
-.continent-checkbox {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-weight: 500;
-  font-size: 0.9rem;
-  color: #334155;
-  cursor: pointer;
+.name-fields.two {
+  grid-template-columns: 1fr 1fr;
 }
 
-.continent-checkbox input[type="checkbox"] {
+.chip-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+}
+
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.continent-chip {
+  justify-content: flex-start;
+  border-radius: var(--radius);
+  min-height: 46px;
+  padding: 0 12px;
+}
+
+.continent-chip .chip-count {
+  margin-left: auto;
+}
+
+.chip-check {
+  display: grid;
+  place-items: center;
   width: 18px;
   height: 18px;
-  cursor: pointer;
-  accent-color: #2563eb;
-}
-
-.continent-checkbox input[type="checkbox"]::before {
-  content: '✓';
-  position: absolute;
-  font-weight: 700;
-  color: #0f172a;
-  font-size: 12px;
-  opacity: 0;
-}
-
-.continent-checkbox input[type="checkbox"]:checked::before {
-  opacity: 1;
-}
-
-.modern-button-row button, .modern-continent-btn {
-  flex: 1;
-  background-color: #f1f5f9;
-  color: #334155;
-  border: 1px solid #cbd5e1;
-  border-radius: 8px;
-  padding: 10px 14px;
-  font-family: 'Inter', system-ui, sans-serif;
-  font-weight: 500;
-  font-size: 0.95rem;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  text-align: center;
-}
-
-.modern-button-row button:hover, .modern-continent-btn:hover {
-  background-color: #e2e8f0;
-}
-
-.modern-button-row button.active, .modern-continent-btn.active {
-  background-color: #2563eb;
-  color: #fff;
-  border-color: #2563eb;
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
-}
-
-.modern-input, .modern-select {
-  width: 100%;
-  padding: 12px 14px;
-  background-color: #f8fafc;
-  border: 1px solid #cbd5e1;
-  border-radius: 8px;
-  color: #1e293b;
-  font-family: 'Inter', system-ui, sans-serif;
-  font-size: 1rem;
-  box-sizing: border-box;
-  outline: none;
-  transition: border-color 0.2s;
-}
-
-.modern-input:focus, .modern-select:focus {
-  border-color: #2563eb;
-  background-color: #fff;
-}
-
-.modern-btn-small {
-  background-color: #e2e8f0;
-  color: #334155;
-  border: none;
   border-radius: 6px;
-  padding: 4px 10px;
-  font-size: 0.85rem;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.modern-btn-small:hover {
-  background-color: #cbd5e1;
-}
-
-.modern-action-row {
-  display: flex;
-  gap: 15px;
-  margin-top: 10px;
-}
-
-.modern-btn {
-  flex: 1;
-  padding: 14px;
-  font-size: 1.1rem;
-  font-weight: 600;
-  font-family: 'Inter', system-ui, sans-serif;
-  border-radius: 8px;
-  cursor: pointer;
-  border: none;
-  transition: all 0.2s ease;
-}
-
-.modern-btn.primary {
-  background-color: #2563eb;
+  border: 1.5px solid var(--border-strong);
+  background: var(--surface);
   color: #fff;
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+  transition: all 0.18s var(--ease);
+  flex-shrink: 0;
 }
 
-.modern-btn.primary:hover {
-  background-color: #1d4ed8;
+.continent-chip[aria-pressed='true'] .chip-check {
+  background: var(--accent);
+  border-color: var(--accent);
 }
 
-.modern-btn.secondary {
-  background-color: #f1f5f9;
-  color: #475569;
-  border: 1px solid #cbd5e1;
+.options-footer {
+  position: sticky;
+  bottom: 0;
+  padding: 8px 0 4px;
+  background: linear-gradient(to top, var(--bg) 70%, transparent);
 }
 
-.modern-btn.secondary:hover {
-  background-color: #e2e8f0;
+.options-start {
+  width: 100%;
+}
+
+@media (max-width: 420px) {
+  .options-card {
+    padding: 4px 18px;
+  }
+
+  .name-fields.two {
+    grid-template-columns: 1fr;
+  }
+
+  .segmented button {
+    font-size: 0.85rem;
+    padding: 0 6px;
+  }
 }

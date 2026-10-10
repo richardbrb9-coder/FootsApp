@@ -1,279 +1,305 @@
-import React, { useState, useEffect } from 'react';
-import { COUNTRIES_DATA } from '../data/countries';
+import { useEffect, useReducer, useRef, useState } from 'react';
+import {
+  TIMER_MODES,
+  buildResult,
+  createGame,
+  currentCountry,
+  formatClock,
+  gameReducer,
+  isFinalTurn,
+  pointsAvailable,
+  POINTS_BY_CLUES,
+} from '../utils/gameEngine';
+import { IconArrowRight, IconBulb, IconCheck, IconClock, IconSkip, IconX } from './Icons';
 import './Gameplay.css';
 
-const shuffleArray = (array) => {
-  const arr = [...array];
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
-  }
-  return arr;
-};
+const NUMBER_KEYS = ['1', '2', '3', '4', '5'];
+const LETTERS = ['A', 'B', 'C', 'D', 'E'];
 
 export default function Gameplay({ config, onEndGame, onReturnToOptions }) {
-  const playerMode = config?.playerMode || '1P';
-  const player1Name = config?.player1Name || 'Player 1';
-  const player2Name = config?.player2Name || 'Player 2';
-  const maxRounds = config?.roundLength || 10;
-  
-  const rawContinents = config?.selectedContinents || config?.selectedContinent || ['Europe'];
-  const targetContinents = Array.isArray(rawContinents) ? rawContinents : [rawContinents];
-  
-  const timerMode = config?.timerMode || 'No Timers';
-  const initialTimeSetting = config?.timerDuration || 15;
+  // All game state lives in one reducer (see utils/gameEngine.js)
+  const [state, dispatch] = useReducer(gameReducer, config, createGame);
+  const [confirmQuit, setConfirmQuit] = useState(false);
+  const endedRef = useRef(false);
 
-  const [p1Queue, setP1Queue] = useState([]);
-  const [p2Queue, setP2Queue] = useState([]);
-  
-  const [p1Index, setP1Index] = useState(0);
-  const [p2Index, setP2Index] = useState(0);
+  const { turn, players, active, timerMode, rounds, playerMode } = state;
+  const player = players[active];
+  const country = currentCountry(state);
+  const revealed = turn.phase === 'revealed';
+  const paused = confirmQuit;
 
-  const [activePlayer, setActivePlayer] = useState(1);
-
-  const [p1Score, setP1Score] = useState(0);
-  const [p2Score, setP2Score] = useState(0);
-  
-  const [cluesRevealedCount, setCluesRevealedCount] = useState(0);
-  const [wrongAttempts, setWrongAttempts] = useState(0);
-  const [feedbackMessage, setFeedbackMessage] = useState('');
-  const [roundCounter, setRoundCounter] = useState(1);
-
-  const [timeLeft, setTimeLeft] = useState(initialTimeSetting);
-
+  // --- Clock: one tick per second while a question is open ------------------
+  const ticking = timerMode !== TIMER_MODES.none && !revealed && !paused && !state.finished;
   useEffect(() => {
-    const filtered = COUNTRIES_DATA.filter(c => 
-      targetContinents.includes('All') || targetContinents.includes(c.continent)
-    );
-    
-    setP1Queue(shuffleArray(filtered));
-    setP2Queue(shuffleArray(filtered));
+    if (!ticking) return undefined;
+    const id = setInterval(() => dispatch({ type: 'TICK' }), 1000);
+    return () => clearInterval(id);
+  }, [ticking, state.turnCount]);
 
-    if (playerMode === '2P') {
-      const randomFirst = Math.random() < 0.5 ? 1 : 2;
-      setActivePlayer(randomFirst);
+  // --- Move on automatically after the answer is shown (cleared on unmount) --
+  useEffect(() => {
+    if (!revealed || paused) return undefined;
+    const delay = turn.outcome === 'correct' ? 1400 : 2400;
+    const id = setTimeout(() => dispatch({ type: 'NEXT' }), delay);
+    return () => clearTimeout(id);
+  }, [revealed, paused, turn.outcome, state.turnCount]);
+
+  // --- Hand the result back exactly once ------------------------------------
+  useEffect(() => {
+    if (state.finished && !endedRef.current) {
+      endedRef.current = true;
+      onEndGame(buildResult(state));
     }
-  }, [config]);
+  }, [state, onEndGame]);
 
-  const currentCountry = activePlayer === 1 ? p1Queue[p1Index] : p2Queue?.[p2Index];
-
+  // --- Keyboard shortcuts ----------------------------------------------------
   useEffect(() => {
-    if (timerMode === 'NoTimers' || timerMode === 'No Timers') return;
-    setTimeLeft(initialTimeSetting);
+    const onKey = (e) => {
+      if (e.metaKey || e.ctrlKey || e.altKey || e.target.tagName === 'INPUT') return;
+      if (e.key === 'Escape') {
+        setConfirmQuit((open) => !open);
+        return;
+      }
+      if (confirmQuit || !country) return;
 
-    const timer = setInterval(() => {
-      setTimeLeft(prev => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          return 0;
+      if (revealed) {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          dispatch({ type: 'NEXT' });
         }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [p1Index, p2Index, activePlayer, timerMode, initialTimeSetting]);
-
-  useEffect(() => {
-    if (timerMode !== 'NoTimers' && timerMode !== 'No Timers' && timeLeft === 0 && currentCountry) {
-      handleTimeOut();
-    }
-  }, [timeLeft]);
-
-  const handleTimeOut = () => {
-    if (!currentCountry) return;
-
-    if (timerMode === 'Time Attack') {
-      setFeedbackMessage(`Time's up! It was ${currentCountry.name}. 0 pts`);
-      setTimeout(() => {
-        advanceTurnOrRound();
-      }, 1500);
-    } else if (timerMode === 'Time Trial') {
-      setFeedbackMessage('Time Trial Finished!');
-      setTimeout(() => {
-        triggerEndGame();
-      }, 1500);
-    }
-  };
-
-  const handleAnswerSelection = (selectedOption) => {
-    if (!currentCountry) return;
-
-    if (selectedOption === currentCountry.name) {
-      // Tiered scoring: 10pts (0 clues), 7pts (1 clue), 5pts (2 clues), 3pts (3 clues)
-      let pointsEarned = 3;
-      if (cluesRevealedCount === 0) pointsEarned = 10;
-      else if (cluesRevealedCount === 1) pointsEarned = 7;
-      else if (cluesRevealedCount === 2) pointsEarned = 5;
-      else if (cluesRevealedCount >= 3) pointsEarned = 3;
-
-      setFeedbackMessage(`Correct! +${pointsEarned} pts`);
-
-      if (activePlayer === 1) {
-        setP1Score(prev => prev + pointsEarned);
-      } else {
-        setP2Score(prev => prev + pointsEarned);
+        return;
       }
 
-      setTimeout(() => {
-        advanceTurnOrRound();
-      }, 1200);
-
-    } else {
-      const nextWrong = wrongAttempts + 1;
-      setWrongAttempts(nextWrong);
-
-      if (nextWrong >= 2 || cluesRevealedCount >= 3) {
-        setFeedbackMessage(`Incorrect! It was ${currentCountry.name}. 0 pts`);
-        setTimeout(() => {
-          advanceTurnOrRound();
-        }, 1500);
-      } else {
-        setCluesRevealedCount(prev => Math.min(prev + 1, 3));
-        setFeedbackMessage('Wrong! Next clue revealed.');
+      const key = e.key.toUpperCase();
+      let idx = NUMBER_KEYS.indexOf(e.key);
+      if (idx === -1) idx = LETTERS.indexOf(key);
+      if (idx >= 0 && idx < country.options.length) {
+        dispatch({ type: 'ANSWER', option: country.options[idx] });
+      } else if (key === 'H') {
+        dispatch({ type: 'HINT' });
+      } else if (key === 'S') {
+        dispatch({ type: 'SKIP' });
       }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [confirmQuit, revealed, country]);
+
+  if (!country) return <div className="screen game-screen" />;
+
+  // --- Derived display values -----------------------------------------------
+  const totalTurns = rounds * players.length;
+  const turnsDone = players.reduce((sum, p) => sum + p.answered, 0) + (revealed ? 1 : 0);
+  const progress = Math.min(100, (turnsDone / totalTurns) * 100);
+  const worth = pointsAvailable(turn);
+  const hintsLeft = country.hints.length - turn.clues;
+  const nextHintCost = worth - POINTS_BY_CLUES[Math.min(turn.clues + 1, POINTS_BY_CLUES.length - 1)];
+  const finalTurn = revealed && isFinalTurn(state);
+
+  const attackPct = timerMode === TIMER_MODES.attack ? (turn.timeLeft / state.attackSeconds) * 100 : 0;
+  const clockValue =
+    timerMode === TIMER_MODES.attack ? `${turn.timeLeft}s` : timerMode === TIMER_MODES.trial ? formatClock(player.timeLeft) : null;
+  const clockWarning =
+    (timerMode === TIMER_MODES.attack && turn.timeLeft <= 5) || (timerMode === TIMER_MODES.trial && player.timeLeft <= 10);
+
+  const optionState = (opt) => {
+    if (turn.wrong.includes(opt)) return 'is-wrong';
+    if (!revealed) return '';
+    return opt === country.name ? 'is-correct' : 'is-dim';
+  };
+
+  const feedback = (() => {
+    if (!revealed) return null;
+    const answer = <strong>{country.name}</strong>;
+    switch (turn.outcome) {
+      case 'correct':
+        return {
+          tone: 'success',
+          text: (
+            <>
+              Correct! <strong>+{turn.points} pts</strong>
+              {player.streak >= 3 && <span className="streak"> · {player.streak} in a row</span>}
+            </>
+          ),
+        };
+      case 'wrong':
+        return { tone: 'danger', text: <>Not quite — it's {answer}</> };
+      case 'timeout':
+        return { tone: 'danger', text: <>Time's up — it's {answer}</> };
+      default:
+        return { tone: 'neutral', text: <>Skipped — it's {answer}</> };
     }
-  };
-
-  const handleRevealClue = () => {
-    if (cluesRevealedCount < 3) {
-      setCluesRevealedCount(prev => prev + 1);
-    }
-  };
-
-  const handleSkip = () => {
-    setFeedbackMessage('Flag skipped!');
-    setTimeout(() => {
-      advanceTurnOrRound();
-    }, 800);
-  };
-
-  const triggerEndGame = () => {
-    onEndGame({ 
-      playerMode, 
-      player1Name, 
-      player2Name, 
-      p1Score, 
-      p2Score 
-    });
-  };
-
-  const advanceTurnOrRound = () => {
-    setCluesRevealedCount(0);
-    setWrongAttempts(0);
-    setFeedbackMessage('');
-
-    if (playerMode === '2P') {
-      if (activePlayer === 1) {
-        setActivePlayer(2);
-      } else {
-        setActivePlayer(1);
-        if (roundCounter >= maxRounds) {
-          triggerEndGame();
-        } else {
-          setRoundCounter(prev => prev + 1);
-          setP1Index(prev => prev + 1);
-          setP2Index(prev => prev + 1);
-        }
-      }
-    } else {
-      if (roundCounter >= maxRounds) {
-        triggerEndGame();
-      } else {
-        setRoundCounter(prev => prev + 1);
-        setP1Index(prev => prev + 1);
-      }
-    }
-  };
-
-  const formatTime = (seconds) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return mins > 0 ? `${mins}m ${secs < 10 ? '0' : ''}${secs}s` : `${secs}s`;
-  };
-
-  if (!currentCountry || !p2Queue) return <div className="gameplay-screen">Loading Question...</div>;
+  })();
 
   return (
-    <div className="gameplay-screen">
-      <div className="game-header">
-        <button className="modern-action-btn" style={{ flex: 'unset', width: 'auto', padding: '8px 16px' }} onClick={onReturnToOptions}>OPTIONS</button>
-        <span>ROUND: {roundCounter} / {maxRounds}</span>
-        {timerMode !== 'No Timers' && timerMode !== 'NoTimers' && (
-          <div className={`timer-display ${timeLeft <= 5 ? 'warning-timer' : ''}`}>
-            {timerMode === 'Time Attack' ? `TIME: ${timeLeft}s` : `TRIAL: ${formatTime(timeLeft)}`}
+    <div className="screen game-screen">
+      <div className="game-wrap">
+        {/* Top bar: quit · progress · score */}
+        <header className="game-topbar">
+          <button className="btn btn-ghost btn-icon" onClick={() => setConfirmQuit(true)} aria-label="Quit game">
+            <IconX />
+          </button>
+          <div className="progress">
+            <div className="progress-label">
+              <span>
+                Flag {Math.min(player.answered + 1, rounds)} <span className="muted">of {rounds}</span>
+              </span>
+              {playerMode === '1P' && <span className="score-label">{player.score} pts</span>}
+            </div>
+            <div className="progress-track">
+              <div className="progress-fill" style={{ width: `${progress}%` }} />
+            </div>
+          </div>
+        </header>
+
+        {/* Two-player scoreboard */}
+        {playerMode === '2P' && (
+          <div className="scoreboard">
+            {players.map((p, i) => (
+              <div key={i} className={`player-tile ${i === active ? 'is-active' : ''} ${p.done ? 'is-done' : ''}`}>
+                <div className="player-tile-top">
+                  <span className="player-tile-name">{p.name}</span>
+                  {i === active ? (
+                    <span className="turn-tag">Your turn</span>
+                  ) : p.done ? (
+                    <span className="turn-tag done">Finished</span>
+                  ) : null}
+                </div>
+                <div className="player-tile-bottom">
+                  <span className="player-tile-score">{p.score}</span>
+                  <span className="player-tile-meta">
+                    {timerMode === TIMER_MODES.trial && <>{formatClock(p.timeLeft)} · </>}
+                    {p.answered}/{rounds}
+                  </span>
+                </div>
+              </div>
+            ))}
           </div>
         )}
+
+        {/* Question card */}
+        <main className="card quiz-card">
+          {timerMode === TIMER_MODES.attack && (
+            <div className="turn-timer" aria-hidden="true">
+              <div
+                key={state.turnCount}
+                className={`turn-timer-fill ${clockWarning ? 'warn' : ''}`}
+                style={{ width: `${attackPct}%` }}
+              />
+            </div>
+          )}
+
+          <div className="quiz-meta">
+            <span className="worth-chip">
+              {revealed ? 'Answer' : <>Worth <strong>{worth}</strong> pts</>}
+            </span>
+            {clockValue && (
+              <span className={`clock-chip ${clockWarning && !revealed ? 'warn' : ''}`}>
+                <IconClock width={15} height={15} /> {clockValue}
+              </span>
+            )}
+          </div>
+
+          <div className="flag-stage">
+            <img
+              key={`${country.id}-${state.turnCount}`}
+              src={country.flag}
+              alt="Flag to identify"
+              className="flag-img"
+              draggable="false"
+              onError={(e) => {
+                e.currentTarget.style.visibility = 'hidden';
+              }}
+            />
+          </div>
+
+          <h2 className="quiz-prompt">
+            {playerMode === '2P' ? `${player.name}, which country is this?` : 'Which country is this?'}
+          </h2>
+
+          <div className="answer-list">
+            {country.options.map((opt, idx) => {
+              const s = optionState(opt);
+              return (
+                <button
+                  key={opt}
+                  className={`answer-btn ${s}`}
+                  onClick={() => dispatch({ type: 'ANSWER', option: opt })}
+                  disabled={revealed || turn.wrong.includes(opt)}
+                >
+                  <span className="answer-key">{LETTERS[idx]}</span>
+                  <span className="answer-text">{opt}</span>
+                  {s === 'is-correct' && <IconCheck className="answer-icon" />}
+                  {s === 'is-wrong' && <IconX className="answer-icon" />}
+                </button>
+              );
+            })}
+          </div>
+
+          {turn.clues > 0 && (
+            <ol className="hint-list">
+              {country.hints.slice(0, turn.clues).map((hint) => (
+                <li key={hint} className="hint-item">
+                  <IconBulb width={16} height={16} />
+                  <span>{hint}</span>
+                </li>
+              ))}
+            </ol>
+          )}
+
+          <footer className="quiz-footer">
+            {feedback ? (
+              <div className={`feedback feedback-${feedback.tone}`} role="status">
+                <span className="feedback-text">{feedback.text}</span>
+                <button className="btn btn-primary btn-sm" onClick={() => dispatch({ type: 'NEXT' })}>
+                  {finalTurn ? 'See results' : 'Next'} <IconArrowRight width={16} height={16} />
+                </button>
+              </div>
+            ) : (
+              <>
+                {turn.wrong.length > 0 && <p className="try-again">Not quite — here's a clue. Try again.</p>}
+                <div className="quiz-actions">
+                  <button className="btn" onClick={() => dispatch({ type: 'HINT' })} disabled={hintsLeft <= 0}>
+                    <IconBulb width={16} height={16} />
+                    {hintsLeft > 0 ? (
+                      <>
+                        Hint <span className="cost">−{nextHintCost}</span>
+                      </>
+                    ) : (
+                      'No hints left'
+                    )}
+                  </button>
+                  <button className="btn btn-ghost" onClick={() => dispatch({ type: 'SKIP' })}>
+                    <IconSkip width={16} height={16} /> Skip
+                  </button>
+                </div>
+              </>
+            )}
+          </footer>
+        </main>
+
+        <p className="kbd-tip">
+          Keys: <kbd>A</kbd>–<kbd>{LETTERS[country.options.length - 1]}</kbd> answer · <kbd>H</kbd> hint ·{' '}
+          <kbd>S</kbd> skip · <kbd>Enter</kbd> next
+        </p>
       </div>
 
-      {playerMode === '2P' ? (
-        <div className="split-screen-container">
-          <div className={`gameplay-card player-card ${activePlayer === 1 ? 'active-card' : 'inactive-card'}`}>
-            <h3>{player1Name} {activePlayer === 1 ? '⭐ (YOUR TURN)' : ''} | Score: {p1Score}</h3>
-            {activePlayer === 1 && renderQuizArea()}
-          </div>
-          <div className={`gameplay-card player-card ${activePlayer === 2 ? 'active-card' : 'inactive-card'}`}>
-            <h3>{player2Name} {activePlayer === 2 ? '⭐ (YOUR TURN)' : ''} | Score: {p2Score}</h3>
-            {activePlayer === 2 && renderQuizArea()}
-          </div>
-        </div>
-      ) : (
-        <div className="single-player-container">
-          <div className="gameplay-card">
-            <div className="player-stats-bar">
-              <span>PLAYER: {player1Name}</span>
-              <span>SCORE: {p1Score}</span>
+      {confirmQuit && (
+        <div className="modal-backdrop" onClick={() => setConfirmQuit(false)}>
+          <div className="card modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+            <h3>Leave this game?</h3>
+            <p>Your progress in this game won't be saved.</p>
+            <div className="modal-actions">
+              <button className="btn" onClick={() => setConfirmQuit(false)} autoFocus>
+                Keep playing
+              </button>
+              <button className="btn btn-primary" onClick={onReturnToOptions}>
+                Leave
+              </button>
             </div>
-            {renderQuizArea()}
           </div>
         </div>
       )}
     </div>
   );
-
-  function renderQuizArea() {
-    const displayedOptions = currentCountry.options.slice(0, 5);
-
-    return (
-      <div className="quiz-box">
-        <div className="flag-display">
-          <img 
-            src={currentCountry.flag} 
-            alt={`Flag of ${currentCountry.name}`} 
-            className="flag-image"
-            onError={(e) => {
-              e.target.style.display = 'none';
-            }}
-          />
-        </div>
-
-        <div className="options-grid">
-          {displayedOptions.map((opt, idx) => (
-            <button key={idx} className="modern-choice-btn" onClick={() => handleAnswerSelection(opt)}>
-              {opt}?
-            </button>
-          ))}
-        </div>
-
-        <div className="clues-box">
-          {cluesRevealedCount === 0 ? (
-            <p className="clue-text" style={{ fontStyle: 'italic', color: '#94a3b8' }}>Clues hidden. Click 'Reveal Clue' if needed!</p>
-          ) : (
-            currentCountry.clues.slice(0, cluesRevealedCount).map((clue, idx) => (
-              <p key={idx} className="clue-text">Clue {idx + 1}: {clue}</p>
-            ))
-          )}
-        </div>
-
-        {feedbackMessage && <p className="feedback-text">{feedbackMessage}</p>}
-
-        <div className="game-controls">
-          {cluesRevealedCount < 3 && (
-            <button className="modern-action-btn reveal-btn" onClick={handleRevealClue}>REVEAL CLUE</button>
-          )}
-          <button className="modern-action-btn skip-btn" onClick={handleSkip}>SKIP FLAG?</button>
-        </div>
-      </div>
-    );
-  }
 }

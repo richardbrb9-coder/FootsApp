@@ -3,8 +3,8 @@
   "short_name": "Flags App",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#f8fafc",
-  "theme_color": "#2563eb",
+  "background_color": "#f4f6fb",
+  "theme_color": "#f4f6fb",
   "orientation": "any",
   "icons": [
     {

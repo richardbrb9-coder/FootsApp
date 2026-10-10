@@ -1,61 +1,100 @@
-import React from 'react';
+import { describeContinents } from '../utils/gameEngine';
+import LeaderboardDisplay from './LeaderboardDisplay';
+import { IconRefresh, IconSliders, IconTrophy } from './Icons';
 import './TrophyScreen.css';
 
-export default function TrophyScreen({ results, onPlayAgain, onReturnToOptions }) {
-  const { playerMode, player1Name, player2Name, p1Score, p2Score } = results || {};
+const TIMER_LABELS = { none: 'Relaxed', attack: 'Time Attack', trial: 'Time Trial' };
+
+function soloHeadline(accuracy) {
+  if (accuracy >= 0.9) return 'Outstanding!';
+  if (accuracy >= 0.7) return 'Great job!';
+  if (accuracy >= 0.4) return 'Nice effort!';
+  return 'Keep practising!';
+}
+
+function Stat({ label, value }) {
+  return (
+    <div className="stat">
+      <span className="stat-value">{value}</span>
+      <span className="stat-label">{label}</span>
+    </div>
+  );
+}
+
+export default function TrophyScreen({ gameResult, onPlayAgain, onReturnToOptions }) {
+  const players = gameResult?.players || [];
+  const isTwoPlayer = gameResult?.playerMode === '2P' && players.length === 2;
+  const rounds = gameResult?.rounds || 0;
+
+  const summary = [
+    `${rounds} flags${isTwoPlayer ? ' each' : ''}`,
+    describeContinents(gameResult?.continents),
+    TIMER_LABELS[gameResult?.timerMode] || 'Relaxed',
+  ].join(' · ');
+
+  let headline;
+  let winnerIndex = -1;
+  if (isTwoPlayer) {
+    const [a, b] = players;
+    winnerIndex = a.score === b.score ? -1 : a.score > b.score ? 0 : 1;
+    headline = winnerIndex === -1 ? "It's a tie!" : `${players[winnerIndex].name} wins!`;
+  } else {
+    const p = players[0] || { correct: 0 };
+    headline = soloHeadline(rounds ? p.correct / rounds : 0);
+  }
 
   return (
-    <div className="trophy-screen">
-      <div className="trophy-card">
-        <h2>Game Over</h2>
-        
-        <div className="trophy-display">
-          <div className="trophy-display-content">
-            {playerMode === '2P' ? (
+    <div className="screen results-screen">
+      <div className="results-wrap">
+        <div className="card results-card">
+          <div className="results-hero">
+            <div className="results-badge">
+              <IconTrophy width={28} height={28} />
+            </div>
+            <h1>{headline}</h1>
+            <p className="results-summary">{summary}</p>
+          </div>
+
+          {isTwoPlayer ? (
+            <div className="versus">
+              {players.map((p, i) => (
+                <div key={i} className={`versus-player ${i === winnerIndex ? 'is-winner' : ''}`}>
+                  <span className="versus-name">{p.name}</span>
+                  <span className="versus-score">{p.score}</span>
+                  <span className="versus-meta">
+                    {p.correct}/{rounds} correct{p.ranOutOfTime ? ' · out of time' : ''}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            players[0] && (
               <>
-                <div className="player-score-line" style={{ marginBottom: '10px' }}>
-                  <span style={{ fontSize: '3.5rem' }}>🥇</span>
-                  <div>
-                    <span style={{ fontWeight: '700', fontSize: '1.3rem', color: '#1e293b' }}>{player1Name}</span>
-                    <span style={{ fontWeight: '600', fontSize: '1.1rem', color: '#2563eb', marginLeft: '6px' }}>:</span>
-                    <span style={{ fontSize: '1.1rem', marginLeft: '4px', color: '#2563eb' }}>{p1Score} pts</span>
-                  </div>
+                <div className="solo-score">
+                  <span className="solo-score-value">{players[0].score}</span>
+                  <span className="solo-score-unit">points</span>
                 </div>
-                <div className="player-score-line" style={{ marginBottom: '10px' }}>
-                  <span style={{ fontSize: '3.5rem' }}>🥈</span>
-                  <div>
-                    <span style={{ fontWeight: '700', fontSize: '1.3rem', color: '#1e293b' }}>{player2Name}</span>
-                    <span style={{ fontWeight: '600', fontSize: '1.1rem', color: '#2563eb', marginLeft: '6px' }}>:</span>
-                    <span style={{ fontSize: '1.1rem', marginLeft: '4px', color: '#2563eb' }}>{p2Score} pts</span>
-                  </div>
-                </div>
-                <div style={{ textAlign: 'center', marginTop: '12px', fontWeight: 'bold', fontSize: '1.1rem', color: '#0f172a' }}>
-                  {p1Score > p2Score ? `${player1Name} Wins!` : p2Score > p1Score ? `${player2Name} Wins!` : "It's a Tie!"}
+                <div className="stats">
+                  <Stat label="Correct" value={`${players[0].correct}/${rounds}`} />
+                  <Stat label="Accuracy" value={`${rounds ? Math.round((players[0].correct / rounds) * 100) : 0}%`} />
+                  <Stat label="Best streak" value={players[0].bestStreak} />
                 </div>
               </>
-            ) : (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                <span style={{ fontSize: '4rem' }}>🏆</span>
-                <div>
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-                    <span style={{ fontWeight: '700', fontSize: '1.6rem', color: '#0f172a' }}>{player1Name}'s Final Score:</span>
-                    <span style={{ fontSize: '1.3rem', color: '#2563eb' }}>{p1Score} pts</span>
-                  </div>
-                  <p style={{ marginTop: '6px', fontSize: '0.95rem', color: '#64748b', margin: 0, textAlign: 'center' }}>Ready for next round?</p>
-                </div>
-              </div>
-            )}
+            )
+          )}
+
+          <div className="results-actions">
+            <button className="btn" onClick={onReturnToOptions}>
+              <IconSliders width={16} height={16} /> Options
+            </button>
+            <button className="btn btn-primary" onClick={onPlayAgain} autoFocus>
+              <IconRefresh width={16} height={16} /> Play again
+            </button>
           </div>
         </div>
 
-        <div className="leaderboard-section">
-          <h3>Leaderboard</h3>
-          <div className="no-scores">Scores saved to browser storage.</div>
-        </div>
-
-        <div className="action-row">
-          <button className="modern-button secondary" onClick={onReturnToOptions}>OPTIONS</button>
-          <button className="modern-button primary" onClick={onPlayAgain}>PLAY AGAIN</button>
+        <div className="card leaderboard-card">
+          <LeaderboardDisplay leaderboard={gameResult?.leaderboard || []} highlightIds={gameResult?.newEntryIds || []} />
         </div>
       </div>
     </div>
